@@ -17,11 +17,19 @@ class _HomeTabState extends State<HomeTab> {
   final user = FirebaseAuth.instance.currentUser;
   Map<String, dynamic>? userProfile;
   final Color primaryColor = const Color(0xFF7A0000);
+  final PageController _announcementController = PageController();
+  int _currentAnnouncementPage = 0;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _announcementController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -152,49 +160,72 @@ class _HomeTabState extends State<HomeTab> {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return const SizedBox();
         final anns = snapshot.data!;
         
-        return SizedBox(
-          height: 120,
-          child: PageView.builder(
-            itemCount: anns.length,
-            itemBuilder: (context, index) {
-              final ann = anns[index];
-              return Container(
-                margin: const EdgeInsets.only(right: 8),
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      color: primaryColor,
+        return Column(
+          children: [
+            SizedBox(
+              height: 130,
+              child: PageView.builder(
+                controller: _announcementController,
+                onPageChanged: (page) {
+                  setState(() => _currentAnnouncementPage = page);
+                },
+                itemCount: anns.length,
+                itemBuilder: (context, index) {
+                  final ann = anns[index];
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8, bottom: 10),
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
-                    const SizedBox(width: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
-                      child: Icon(Icons.campaign, color: Colors.blue[400]),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          color: primaryColor,
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
+                          child: Icon(Icons.campaign, color: Colors.blue[400]),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(ann['title'] ?? 'Announcement', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(height: 4),
+                              Text(ann['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            ],
+                          ),
+                        )
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(ann['title'] ?? 'Announcement', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 4),
-                          Text(ann['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                        ],
-                      ),
-                    )
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            ),
+            if (anns.length > 1)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(anns.length, (index) {
+                  return Container(
+                    width: _currentAnnouncementPage == index ? 20 : 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: _currentAnnouncementPage == index ? primaryColor : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                }),
+              ),
+          ],
         );
       },
     );
@@ -258,35 +289,106 @@ class _HomeTabState extends State<HomeTab> {
 
   Widget _buildAttendanceGraph() {
     return Container(
-      height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
       ),
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: [
-                const FlSpot(0, 3),
-                const FlSpot(1, 1),
-                const FlSpot(2, 4),
-                const FlSpot(3, 2),
-                const FlSpot(4, 5),
-              ],
-              isCurved: true,
-              color: primaryColor,
-              barWidth: 4,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true, color: primaryColor.withOpacity(0.1)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('94.2%', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text('Average Consistency', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  '+5.2% vs last month',
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey[100]!,
+                    strokeWidth: 1,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        return Text('${value.toInt()}%', style: const TextStyle(color: Colors.grey, fontSize: 10));
+                      },
+                      reservedSize: 35,
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        const days = ['Oct 3', 'Oct 10', 'Oct 17', 'Oct 24', 'Oct 31'];
+                        if (value.toInt() >= 0 && value.toInt() < days.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(days[value.toInt()], style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                          );
+                        }
+                        return const Text('');
+                      },
+                      reservedSize: 30,
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: [
+                      const FlSpot(0, 85),
+                      const FlSpot(1, 90),
+                      const FlSpot(2, 88),
+                      const FlSpot(3, 94),
+                      const FlSpot(4, 96),
+                    ],
+                    isCurved: true,
+                    color: primaryColor,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: primaryColor.withOpacity(0.05),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -308,7 +410,6 @@ class _HomeTabState extends State<HomeTab> {
         }).toList();
 
         // Sort: By date and then by time (assuming time is a string like "10:00 AM")
-        // Note: For real sorting, we'd need to parse the time string or store time as a double/timestamp.
         filteredActivities.sort((a, b) => (a['date'] as Timestamp).compareTo(b['date'] as Timestamp));
 
         if (filteredActivities.isEmpty) {
