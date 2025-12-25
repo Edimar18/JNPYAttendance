@@ -7,16 +7,13 @@ class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // --- CLOUDINARY CONFIGURATION ---
-  // REPLACE THESE VALUES WITH YOUR OWN CLOUDINARY CREDENTIALS
   final String cloudinaryCloudName = "dubuem6e9";
   final String cloudinaryUploadPreset = "PYCCAttendance";
-  // --------------------------------
 
   // Upload image to Cloudinary
   Future<String?> uploadToCloudinary(File imageFile) async {
     try {
       final url = Uri.parse('https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload');
-      
       final request = http.MultipartRequest('POST', url)
         ..fields['upload_preset'] = cloudinaryUploadPreset
         ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
@@ -35,7 +32,7 @@ class DatabaseService {
     }
   }
 
-  // Check if profile exists for UID
+  // User Profile
   Future<bool> profileExists(String uid) async {
     try {
       DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
@@ -45,14 +42,71 @@ class DatabaseService {
     }
   }
 
-  // Save User Profile
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
+    return doc.data() as Map<String, dynamic>?;
+  }
+
   Future<void> saveUserProfile(String uid, Map<String, dynamic> data) async {
-    // Force verification status to false on creation
-    data['isVerified'] = false;
+    data['isVerified'] = data['isVerified'] ?? false;
+    data['head'] = data['head'] ?? 'none'; // chapel, cluster, admin, or none
     await _db.collection('users').doc(uid).set(data);
   }
 
-  // Clusters
+  // Announcements
+  Stream<List<Map<String, dynamic>>> getAnnouncements(String? chapelId, String? clusterId) {
+    return _db.collection('announcements').orderBy('createdAt', descending: true).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).where((ann) {
+        String scope = ann['scope'] ?? 'parish';
+        String? scopeId = ann['scopeId'];
+        if (scope == 'parish') return true;
+        if (scope == 'cluster' && scopeId == clusterId) return true;
+        if (scope == 'chapel' && scopeId == chapelId) return true;
+        return false;
+      }).toList();
+    });
+  }
+
+  Future<void> addAnnouncement(Map<String, dynamic> data) async {
+    data['createdAt'] = FieldValue.serverTimestamp();
+    await _db.collection('announcements').add(data);
+  }
+
+  Future<void> updateAnnouncement(String id, Map<String, dynamic> data) async {
+    await _db.collection('announcements').doc(id).update(data);
+  }
+
+  Future<void> deleteAnnouncement(String id) async {
+    await _db.collection('announcements').doc(id).delete();
+  }
+
+  // Activities
+  Stream<List<Map<String, dynamic>>> getActivities(String? chapelId, String? clusterId) {
+    return _db.collection('activities').orderBy('date', descending: false).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).where((act) {
+        String scope = act['scope'] ?? 'parish';
+        String? scopeId = act['scopeId'];
+        if (scope == 'parish') return true;
+        if (scope == 'cluster' && scopeId == clusterId) return true;
+        if (scope == 'chapel' && scopeId == chapelId) return true;
+        return false;
+      }).toList();
+    });
+  }
+
+  Future<void> addActivity(Map<String, dynamic> data) async {
+    await _db.collection('activities').add(data);
+  }
+
+  Future<void> updateActivity(String id, Map<String, dynamic> data) async {
+    await _db.collection('activities').doc(id).update(data);
+  }
+
+  Future<void> deleteActivity(String id) async {
+    await _db.collection('activities').doc(id).delete();
+  }
+
+  // Clusters & Chapels
   Stream<List<Map<String, dynamic>>> getClusters() {
     return _db.collection('clusters').orderBy('name').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
@@ -74,24 +128,16 @@ class DatabaseService {
     await _db.collection('clusters').doc(id).delete();
   }
 
-  // Chapels
   Stream<List<Map<String, dynamic>>> getChapels(String clusterId) {
-    return _db
-        .collection('chapels')
-        .where('clusterId', isEqualTo: clusterId)
-        .snapshots()
-        .map((snapshot) {
-          var list = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
-          list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
-          return list;
-        });
+    return _db.collection('chapels').where('clusterId', isEqualTo: clusterId).snapshots().map((snapshot) {
+      var list = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      list.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+      return list;
+    });
   }
 
   Future<void> addChapel(String name, String clusterId) async {
-    await _db.collection('chapels').add({
-      'name': name,
-      'clusterId': clusterId,
-    });
+    await _db.collection('chapels').add({'name': name, 'clusterId': clusterId});
   }
 
   Future<void> updateChapel(String id, String name) async {
@@ -118,23 +164,5 @@ class DatabaseService {
 
   Future<void> deleteMinistry(String id) async {
     await _db.collection('ministries').doc(id).delete();
-  }
-
-  // Legacy setup tool
-  Future<void> generateInitialData() async {
-    List<String> clusterNames = ['Cluster 1', 'Cluster 2', 'Cluster 3'];
-    for (var name in clusterNames) {
-      var ref = await _db.collection('clusters').add({'name': name});
-      for (int i = 1; i <= 3; i++) {
-        await _db.collection('chapels').add({
-          'name': 'Chapel $i of $name',
-          'clusterId': ref.id,
-        });
-      }
-    }
-    List<String> ministries = ['Worship', 'Kids', 'Technical', 'Ushering', 'Media'];
-    for (var m in ministries) {
-      await _db.collection('ministries').add({'name': m});
-    }
   }
 }
