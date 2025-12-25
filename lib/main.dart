@@ -54,7 +54,9 @@ class AuthWrapper extends StatelessWidget {
                 return const Scaffold(body: Center(child: CircularProgressIndicator()));
               }
               
-
+              if (!profileSnapshot.hasData || !profileSnapshot.data!.exists) {
+                return const SetupProfileScreen();
+              }
               
               return const MainScreen();
             },
