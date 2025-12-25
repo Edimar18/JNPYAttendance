@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/database_service.dart';
 
 class DevToolScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Developer Tools', style: TextStyle(color: Colors.white)),
@@ -25,9 +26,11 @@ class _DevToolScreenState extends State<DevToolScreen> {
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
+            isScrollable: true,
             tabs: [
               Tab(text: 'Clusters & Chapels'),
               Tab(text: 'Ministries'),
+              Tab(text: 'Announcements & Activities'),
             ],
           ),
         ),
@@ -35,6 +38,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
           children: [
             _buildClustersTab(),
             _buildMinistriesTab(),
+            _buildAnnouncementsActivitiesTab(),
           ],
         ),
       ),
@@ -159,6 +163,211 @@ class _DevToolScreenState extends State<DevToolScreen> {
     );
   }
 
+  Widget _buildAnnouncementsActivitiesTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildSectionTitle('Announcements'),
+        _buildAnnouncementsList(),
+        const Divider(height: 32),
+        _buildSectionTitle('Activities'),
+        _buildActivitiesList(),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ElevatedButton.icon(
+          onPressed: () => _showAddActivityOrAnnDialog(title.substring(0, title.length - 1)),
+          icon: const Icon(Icons.add, size: 18),
+          label: Text('Add ${title.substring(0, title.length - 1)}'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnnouncementsList() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _db.getAnnouncements(null, null), // Fetch all for dev tool
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+        final anns = snapshot.data!;
+        if (anns.isEmpty) return const Padding(padding: EdgeInsets.all(8.0), child: Text('No announcements yet.'));
+        return Column(
+          children: anns.map((ann) => ListTile(
+            title: Text(ann['title'] ?? ''),
+            subtitle: Text('Scope: ${ann['scope']}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: () => _showAddActivityOrAnnDialog('Announcement', data: ann)),
+                IconButton(icon: const Icon(Icons.delete, size: 20, color: Colors.red), onPressed: () => _showDeleteConfirm(context, 'Announcement', ann['id'])),
+              ],
+            ),
+          )).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildActivitiesList() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _db.getActivities(null, null), // Fetch all for dev tool
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+        final acts = snapshot.data!;
+        if (acts.isEmpty) return const Padding(padding: EdgeInsets.all(8.0), child: Text('No activities yet.'));
+        return Column(
+          children: acts.map((act) => ListTile(
+            title: Text(act['name'] ?? ''),
+            subtitle: Text('Scope: ${act['scope']}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: const Icon(Icons.edit, size: 20), onPressed: () => _showAddActivityOrAnnDialog('Activity', data: act)),
+                IconButton(icon: const Icon(Icons.delete, size: 20, color: Colors.red), onPressed: () => _showDeleteConfirm(context, 'Activity', act['id'])),
+              ],
+            ),
+          )).toList(),
+        );
+      },
+    );
+  }
+
+  void _showAddActivityOrAnnDialog(String type, {Map<String, dynamic>? data}) {
+    final titleController = TextEditingController(text: data != null ? (type == 'Announcement' ? data['title'] : data['name']) : '');
+    final infoController = TextEditingController(text: data != null ? (type == 'Announcement' ? data['content'] : data['information']) : '');
+    final locationController = TextEditingController(text: data != null ? data['location'] : '');
+    final timeController = TextEditingController(text: data != null ? data['time'] : '');
+    String scope = data != null ? data['scope'] : 'parish';
+    String? scopeId = data != null ? data['scopeId'] : null;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(data == null ? 'Add $type' : 'Edit $type'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleController, decoration: InputDecoration(labelText: type == 'Announcement' ? 'Title' : 'Activity Name')),
+                TextField(controller: infoController, decoration: InputDecoration(labelText: type == 'Announcement' ? 'Content' : 'Information'), maxLines: 2),
+                if (type == 'Activity') ...[
+                  TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location')),
+                  TextField(controller: timeController, decoration: const InputDecoration(labelText: 'Time (e.g. 10:00 AM)')),
+                ],
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: scope,
+                  decoration: const InputDecoration(labelText: 'Scope'),
+                  items: ['parish', 'cluster', 'chapel'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      scope = val!;
+                      scopeId = null;
+                    });
+                  },
+                ),
+                if (scope == 'cluster')
+                  StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _db.getClusters(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox();
+                      return DropdownButtonFormField<String>(
+                        value: scopeId,
+                        decoration: const InputDecoration(labelText: 'Select Cluster'),
+                        items: snapshot.data!.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name']))).toList(),
+                        onChanged: (val) => setState(() => scopeId = val),
+                      );
+                    },
+                  ),
+                if (scope == 'chapel')
+                  StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _db.getClusters(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox();
+                      return Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            decoration: const InputDecoration(labelText: 'Select Cluster First'),
+                            items: snapshot.data!.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name']))).toList(),
+                            onChanged: (val) {
+                              setState(() {
+                                scopeId = null; // Reset chapel when cluster changes
+                                _currentClusterIdForChapel = val;
+                              });
+                            },
+                          ),
+                          if (_currentClusterIdForChapel != null)
+                            StreamBuilder<List<Map<String, dynamic>>>(
+                              stream: _db.getChapels(_currentClusterIdForChapel!),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) return const SizedBox();
+                                return DropdownButtonFormField<String>(
+                                  value: scopeId,
+                                  decoration: const InputDecoration(labelText: 'Select Chapel'),
+                                  items: snapshot.data!.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name']))).toList(),
+                                  onChanged: (val) => setState(() => scopeId = val),
+                                );
+                              },
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                Map<String, dynamic> itemData = {
+                  'scope': scope,
+                  'scopeId': scopeId,
+                  'createdBy': user?.uid,
+                };
+
+                if (type == 'Announcement') {
+                  itemData['title'] = titleController.text;
+                  itemData['content'] = infoController.text;
+                } else {
+                  itemData['name'] = titleController.text;
+                  itemData['information'] = infoController.text;
+                  itemData['location'] = locationController.text;
+                  itemData['time'] = timeController.text;
+                  itemData['date'] = DateTime.now(); // For demo, use now. Real app might need a picker.
+                  itemData['status'] = 'open';
+                }
+
+                if (data == null) {
+                  type == 'Announcement' ? await _db.addAnnouncement(itemData) : await _db.addActivity(itemData);
+                } else {
+                  type == 'Announcement' ? await _db.updateAnnouncement(data['id'], itemData) : await _db.updateActivity(data['id'], itemData);
+                }
+                if (mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _currentClusterIdForChapel;
+
   void _showAddEditDialog(BuildContext context, {required String type, String? id, String? clusterId, String initialValue = ''}) {
     final controller = TextEditingController(text: initialValue);
     showDialog(
@@ -206,6 +415,8 @@ class _DevToolScreenState extends State<DevToolScreen> {
               if (type == 'Cluster') await _db.deleteCluster(id);
               if (type == 'Chapel') await _db.deleteChapel(id);
               if (type == 'Ministry') await _db.deleteMinistry(id);
+              if (type == 'Announcement') await _db.deleteAnnouncement(id);
+              if (type == 'Activity') await _db.deleteActivity(id);
               if (mounted) Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),

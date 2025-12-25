@@ -204,11 +204,11 @@ class _HomeTabState extends State<HomeTab> {
       ),
       child: Column(
         children: [
-          _rankingItem('01', 'St. Peter\'s Chapel', '342', '98%', Colors.orange),
+          _rankingItem('01', 'Cluster 1', '342', '98%', Colors.orange),
           const Divider(height: 24),
-          _rankingItem('02', 'Grace Cluster', '285', '95%', Colors.blue),
+          _rankingItem('02', 'Cluster 3', '285', '95%', Colors.blue),
           const Divider(height: 24),
-          _rankingItem('03', 'Epiphany Group', '156', '92%', Colors.green),
+          _rankingItem('03', 'Cluster 2', '156', '92%', Colors.green),
         ],
       ),
     );
