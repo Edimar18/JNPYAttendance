@@ -49,14 +49,16 @@ class DatabaseService {
 
   Future<void> saveUserProfile(String uid, Map<String, dynamic> data) async {
     data['isVerified'] = data['isVerified'] ?? false;
-    data['head'] = data['head'] ?? 'none'; // chapel, cluster, admin, or none
+    data['head'] = data['head'] ?? 'none';
     await _db.collection('users').doc(uid).set(data);
   }
 
   // Announcements
-  Stream<List<Map<String, dynamic>>> getAnnouncements(String? chapelId, String? clusterId) {
+  Stream<List<Map<String, dynamic>>> getAnnouncements(String? chapelId, String? clusterId, {bool all = false}) {
     return _db.collection('announcements').orderBy('createdAt', descending: true).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).where((ann) {
+      var list = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      if (all) return list;
+      return list.where((ann) {
         String scope = ann['scope'] ?? 'parish';
         String? scopeId = ann['scopeId'];
         if (scope == 'parish') return true;
@@ -81,9 +83,12 @@ class DatabaseService {
   }
 
   // Activities
-  Stream<List<Map<String, dynamic>>> getActivities(String? chapelId, String? clusterId) {
+  Stream<List<Map<String, dynamic>>> getActivities(String? chapelId, String? clusterId, {bool all = false}) {
+    // We order by date ascending for the home screen (upcoming first)
     return _db.collection('activities').orderBy('date', descending: false).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).where((act) {
+      var list = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      if (all) return list;
+      return list.where((act) {
         String scope = act['scope'] ?? 'parish';
         String? scopeId = act['scopeId'];
         if (scope == 'parish') return true;

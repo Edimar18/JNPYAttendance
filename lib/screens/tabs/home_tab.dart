@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_service.dart';
 
 class HomeTab extends StatefulWidget {
@@ -159,14 +160,19 @@ class _HomeTabState extends State<HomeTab> {
               final ann = anns[index];
               return Container(
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.all(16),
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
                 child: Row(
                   children: [
+                    Container(
+                      width: 6,
+                      color: primaryColor,
+                    ),
+                    const SizedBox(width: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
@@ -215,27 +221,38 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _rankingItem(String rank, String name, String count, String consistency, Color color) {
-    return Row(
-      children: [
-        Text(rank, style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              Text('$consistency CONSISTENCY', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold)),
-            ],
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(count, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 15)),
-            const Text('↗ 12%', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
-          ],
-        )
-      ],
+          const SizedBox(width: 16),
+          Text(rank, style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text('$consistency CONSISTENCY', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(count, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 15)),
+              const Text('↗ 12%', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+            ],
+          )
+        ],
+      ),
     );
   }
 
@@ -278,20 +295,43 @@ class _HomeTabState extends State<HomeTab> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _db.getActivities(userProfile?['chapelId'], userProfile?['clusterId']),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        
+        // Filter: Show only today and future activities
+        final filteredActivities = snapshot.data!.where((act) {
+          final actDate = (act['date'] as Timestamp).toDate();
+          final actDay = DateTime(actDate.year, actDate.month, actDate.day);
+          return actDay.isAtSameMomentAs(today) || actDay.isAfter(today);
+        }).toList();
+
+        // Sort: By date and then by time (assuming time is a string like "10:00 AM")
+        // Note: For real sorting, we'd need to parse the time string or store time as a double/timestamp.
+        filteredActivities.sort((a, b) => (a['date'] as Timestamp).compareTo(b['date'] as Timestamp));
+
+        if (filteredActivities.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Center(child: Text('No Activities Today', style: TextStyle(color: Colors.grey))),
           );
         }
+
         return Column(
-          children: snapshot.data!.map((act) => _activityCard(act)).toList(),
+          children: filteredActivities.asMap().entries.map((entry) {
+            int idx = entry.key;
+            var act = entry.value;
+            // First item of the sorted list is "UPCOMING", others are "LATER" (if same day)
+            String status = idx == 0 ? 'UPCOMING' : 'LATER';
+            return _activityCard(act, status);
+          }).toList(),
         );
       },
     );
   }
 
-  Widget _activityCard(Map<String, dynamic> act) {
+  Widget _activityCard(Map<String, dynamic> act, String status) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -308,7 +348,10 @@ class _HomeTabState extends State<HomeTab> {
             decoration: BoxDecoration(
               color: Colors.grey[200],
               borderRadius: BorderRadius.circular(12),
-              image: const DecorationImage(image: NetworkImage('https://via.placeholder.com/80'), fit: BoxFit.cover),
+              image: const DecorationImage(
+                image: NetworkImage('https://via.placeholder.com/80'), 
+                fit: BoxFit.cover
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -316,8 +359,18 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('UPCOMING', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                Text(act['name'] ?? 'Activity', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  status, 
+                  style: TextStyle(
+                    color: status == 'UPCOMING' ? Colors.green : Colors.blueGrey, 
+                    fontSize: 10, 
+                    fontWeight: FontWeight.bold
+                  )
+                ),
+                Text(
+                  act['name'] ?? 'Activity', 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: [

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/database_service.dart';
 
 class DevToolScreen extends StatefulWidget {
@@ -197,7 +198,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
 
   Widget _buildAnnouncementsList() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _db.getAnnouncements(null, null), // Fetch all for dev tool
+      stream: _db.getAnnouncements(null, null, all: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final anns = snapshot.data!;
@@ -221,7 +222,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
 
   Widget _buildActivitiesList() {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _db.getActivities(null, null), // Fetch all for dev tool
+      stream: _db.getActivities(null, null, all: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
         final acts = snapshot.data!;
@@ -229,7 +230,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
         return Column(
           children: acts.map((act) => ListTile(
             title: Text(act['name'] ?? ''),
-            subtitle: Text('Scope: ${act['scope']}'),
+            subtitle: Text('Scope: ${act['scope']} - ${act['time']}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -250,6 +251,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
     final timeController = TextEditingController(text: data != null ? data['time'] : '');
     String scope = data != null ? data['scope'] : 'parish';
     String? scopeId = data != null ? data['scopeId'] : null;
+    DateTime selectedDate = data != null && data['date'] != null ? (data['date'] as Timestamp).toDate() : DateTime.now();
 
     showDialog(
       context: context,
@@ -265,6 +267,26 @@ class _DevToolScreenState extends State<DevToolScreen> {
                 if (type == 'Activity') ...[
                   TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location')),
                   TextField(controller: timeController, decoration: const InputDecoration(labelText: 'Time (e.g. 10:00 AM)')),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('Date: '),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: selectedDate,
+                            firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (picked != null) {
+                            setState(() => selectedDate = picked);
+                          }
+                        },
+                        child: Text("${selectedDate.month}/${selectedDate.day}/${selectedDate.year}"),
+                      ),
+                    ],
+                  ),
                 ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -303,7 +325,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
                             items: snapshot.data!.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name']))).toList(),
                             onChanged: (val) {
                               setState(() {
-                                scopeId = null; // Reset chapel when cluster changes
+                                scopeId = null;
                                 _currentClusterIdForChapel = val;
                               });
                             },
@@ -347,7 +369,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
                   itemData['information'] = infoController.text;
                   itemData['location'] = locationController.text;
                   itemData['time'] = timeController.text;
-                  itemData['date'] = DateTime.now(); // For demo, use now. Real app might need a picker.
+                  itemData['date'] = Timestamp.fromDate(selectedDate);
                   itemData['status'] = 'open';
                 }
 
