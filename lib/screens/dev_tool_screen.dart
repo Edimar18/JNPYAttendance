@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 
 class DevToolScreen extends StatefulWidget {
@@ -230,7 +231,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
         return Column(
           children: acts.map((act) => ListTile(
             title: Text(act['name'] ?? ''),
-            subtitle: Text('Scope: ${act['scope']} - ${act['time']}'),
+            subtitle: Text('Scope: ${act['scope']} - ${act['status']}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -251,6 +252,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
     final timeController = TextEditingController(text: data != null ? data['time'] : '');
     String scope = data != null ? data['scope'] : 'parish';
     String? scopeId = data != null ? data['scopeId'] : null;
+    String status = data != null && data['status'] != null ? data['status'] : 'upcoming';
     DateTime selectedDate = data != null && data['date'] != null ? (data['date'] as Timestamp).toDate() : DateTime.now();
 
     showDialog(
@@ -268,6 +270,13 @@ class _DevToolScreenState extends State<DevToolScreen> {
                   TextField(controller: locationController, decoration: const InputDecoration(labelText: 'Location')),
                   TextField(controller: timeController, decoration: const InputDecoration(labelText: 'Time (e.g. 10:00 AM)')),
                   const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: ['open', 'ongoing', 'upcoming', 'attendance review'].map((s) => DropdownMenuItem(value: s, child: Text(s.toUpperCase()))).toList(),
+                    onChanged: (val) => setState(() => status = val!),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       const Text('Date: '),
@@ -283,7 +292,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
                             setState(() => selectedDate = picked);
                           }
                         },
-                        child: Text("${selectedDate.month}/${selectedDate.day}/${selectedDate.year}"),
+                        child: Text(DateFormat('MMM dd, yyyy').format(selectedDate)),
                       ),
                     ],
                   ),
@@ -359,6 +368,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
                   'scope': scope,
                   'scopeId': scopeId,
                   'createdBy': user?.uid,
+                  'timeCreated': FieldValue.serverTimestamp(),
                 };
 
                 if (type == 'Announcement') {
@@ -370,7 +380,7 @@ class _DevToolScreenState extends State<DevToolScreen> {
                   itemData['location'] = locationController.text;
                   itemData['time'] = timeController.text;
                   itemData['date'] = Timestamp.fromDate(selectedDate);
-                  itemData['status'] = 'open';
+                  itemData['status'] = status;
                 }
 
                 if (data == null) {
