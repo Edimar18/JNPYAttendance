@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../services/database_service.dart';
+import '../manage_announcements_screen.dart';
 
 class ActivitiesTab extends StatefulWidget {
   const ActivitiesTab({super.key});
@@ -121,27 +122,48 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
         ],
       );
     } else if (headType == 'cluster') {
-      return _buildActionCard(
-        icon: Icons.edit_calendar_sharp,
-        title: "Create Cluster Activity",
-        subtitle: "Organize events that involve all chapels within your cluster.",
-        onTap: () => _showCreateActivityDialog(context, 'cluster', profile),
+      return Column(
+        children: [
+          _buildActionCard(
+            icon: Icons.edit_calendar_sharp,
+            title: "Create Cluster Activity",
+            subtitle: "Organize events that involve all chapels within your cluster.",
+            onTap: () => _showCreateActivityDialog(context, 'cluster', profile),
+          ),
+          const SizedBox(height: 16),
+          _buildActionCard(
+            icon: Icons.campaign,
+            title: "Manage Announcements",
+            subtitle: "Broadcast news or updates to your entire cluster or specific chapels.",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile)),
+              );
+            },
+          ),
+        ],
       );
     } else if (headType == 'admin') {
       return Column(
         children: [
           _buildActionCard(
             icon: Icons.church,
-            title: "Create Parish Activity",
-            subtitle: "Plan events for the entire parish community.",
+            title: "Create Parish / Cluster Activity",
+            subtitle: "Plan events for the entire parish community or specific clusters.",
             onTap: () => _showCreateActivityDialog(context, 'parish', profile),
           ),
           const SizedBox(height: 16),
           _buildActionCard(
-            icon: Icons.groups,
-            title: "Create Cluster Activity",
-            subtitle: "Set up activities specific to a cluster.",
-            onTap: () => _showCreateActivityDialog(context, 'cluster', profile),
+            icon: Icons.campaign,
+            title: "Manage Announcements",
+            subtitle: "Create and manage parish, cluster, or chapel announcements.",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile)),
+              );
+            },
           ),
         ],
       );
@@ -287,11 +309,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
   }
 
   void _showCreateActivityDialog(BuildContext context, String scope, Map<String, dynamic> profile) {
-    // This could navigate to a dedicated screen or show a full-screen dialog
-    // For now, I'll recommend creating a dedicated screen for adding activities
-    // due to the complexity of the fields requested.
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Opening Create $scope Activity Screen...")));
-    // TODO: Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(scope: scope, profile: profile)));
   }
 
   void _showFilterDialog(BuildContext context, String headType, Map<String, dynamic> profile) {

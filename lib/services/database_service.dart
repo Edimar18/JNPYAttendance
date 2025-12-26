@@ -61,9 +61,14 @@ class DatabaseService {
       return list.where((ann) {
         String scope = ann['scope'] ?? 'parish';
         String? scopeId = ann['scopeId'];
+        List? chapelIds = ann['chapelIds'] as List?;
+
         if (scope == 'parish') return true;
         if (scope == 'cluster' && scopeId == clusterId) return true;
-        if (scope == 'chapel' && scopeId == chapelId) return true;
+        if (scope == 'chapel') {
+          if (scopeId == chapelId) return true;
+          if (chapelIds != null && chapelIds.contains(chapelId)) return true;
+        }
         return false;
       }).toList();
     });
