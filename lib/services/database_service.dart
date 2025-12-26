@@ -170,4 +170,32 @@ class DatabaseService {
   Future<void> deleteMinistry(String id) async {
     await _db.collection('ministries').doc(id).delete();
   }
+
+  // Participants (Fetched from 'users' collection as per user feedback)
+  Stream<List<Map<String, dynamic>>> getParticipants({String? chapelId, String? clusterId}) {
+    Query query = _db.collection('users');
+    
+    if (chapelId != null) {
+      query = query.where('chapelId', isEqualTo: chapelId);
+    } else if (clusterId != null) {
+      query = query.where('clusterId', isEqualTo: clusterId);
+    }
+
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => {'id': doc.id, ...doc.data() as Map<String, dynamic>}).toList());
+  }
+
+  Future<void> addParticipant(Map<String, dynamic> data) async {
+    // Note: If adding people without accounts, this might still go to a 'participants' collection
+    // or we can flag them in the 'users' collection as 'unregistered'.
+    await _db.collection('users').add(data);
+  }
+
+  Future<void> updateParticipant(String id, Map<String, dynamic> data) async {
+    await _db.collection('users').doc(id).update(data);
+  }
+
+  Future<void> deleteParticipant(String id) async {
+    await _db.collection('users').doc(id).delete();
+  }
 }

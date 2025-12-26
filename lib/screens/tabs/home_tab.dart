@@ -77,8 +77,8 @@ class _HomeTabState extends State<HomeTab> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'DANSOLIHON PARISH',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 18),
+                        'JNPYA MONITORING SYSTEM',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 16),
                       ),
                     ],
                   ),
