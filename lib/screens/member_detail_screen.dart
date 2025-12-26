@@ -154,14 +154,14 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                       if (isVerified)
                         Positioned(
                           bottom: 0,
-                          right: 0, // Moved to right bottom
+                          right: 4,
                           child: Container(
-                            padding: const EdgeInsets.all(2),
+                            padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              color: Colors.blue,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.check_circle, color: Color(0xFF1E5631), size: 28),
+                            child: const Icon(Icons.verified, color: Colors.white, size: 20),
                           ),
                         ),
                     ],
