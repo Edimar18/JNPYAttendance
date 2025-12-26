@@ -36,3 +36,57 @@ PARISH ATTENDANCE MONITORING SYSTEM - PROJECT HISTORY
 6. TECHNICAL CONFIGURATIONS
 - Android: Manifest updated with Internet/Storage permissions and UCropActivity for image cropping.
 - Dependencies: firebase_core, firebase_auth, cloud_firestore, image_picker, image_cropper, http, intl, fl_chart.
+
+# Parish Attendance Monitoring System - Development History
+
+## Project Overview
+A hierarchical monitoring system for a parish, organized by Clusters, Chapels, and Ministries, featuring role-based access control (RBAC) for Admins, Cluster Heads, and Chapel Heads.
+
+## Key Accomplishments & Modifications
+
+### 1. Developer Tools (DevToolScreen)
+- Enhanced the "Add Activity" dialog to capture all required metadata: `name`, `information`, `location`, `time`, `date`, `status` (Open, Ongoing, Upcoming, Attendance Review), `scope`, `scopeId`, `createdBy`, and `timeCreated`.
+- Standardized the UI for managing Clusters, Chapels, Ministries, Announcements, and Activities.
+
+### 2. Activities Tab (ActivitiesTab)
+- **Role-Based UI:**
+    - Chapel Heads: Create Chapel Activities, Join Cluster/Parish Activities.
+    - Cluster Heads: Create Cluster Activities, Manage Announcements.
+    - Admins: Create Parish/Cluster Activities, Manage Announcements.
+- **Enhanced Activity List:**
+    - Implemented a "TODAY" vs "UPCOMING" labeling system based on the current date.
+    - Added hierarchical filtering: Cluster Heads can filter by Chapel; Admins can filter by Cluster and Chapel.
+    - Replaced image placeholders with a themed icon-based design (`Icons.event_available`).
+
+### 3. Manage Announcements Screen
+- **Centralized Command Center:** A dedicated screen for Cluster Heads and Admins to manage communications.
+- **Swipe Actions:** Implemented `Dismissible` widgets for quick "Swipe-to-Edit" and "Swipe-to-Delete" functionality.
+- **Advanced Targeting:**
+    - Admins can publish Parish-wide, Cluster-specific, or Chapel-specific announcements.
+    - Cluster Heads can target their entire cluster or specific chapels within it.
+    - Uses a hierarchical selector (Choose Cluster -> Choose Chapels).
+
+### 4. Home Screen (HomeTab)
+- **Strict Filtering:** "Today's Activities" now strictly shows only events occurring on the current calendar day.
+- **Rich Announcements:**
+    - Added author attribution (Full Name + Role) and posting time to the announcement slider.
+    - Implemented a beautiful **Announcement Detail Dialog** that shows full content, creator's profile photo, and metadata.
+- **UI Refresh:** Standardized cards, typography, and color schemes (0xFF1E5631 for events) to match the modern app aesthetic.
+
+### 5. Create Activity Workflow (AddActivityScreen)
+- Created a high-fidelity activity creation form based on UI mockups.
+- Integrated Date and Time pickers with themed styling.
+- Handled complex scoping logic (locking roles to their jurisdictions while allowing Admins flexibility).
+
+### 6. Database & Services (DatabaseService)
+- Standardized Firestore streams (`getAnnouncements`, `getActivities`) to ensure real-time updates and correct visibility across roles.
+- Fixed logic for `scopeId` and `chapelIds` to ensure announcements and activities reflect correctly on the Home Screen for targeted users.
+- Ensured consistency between "Dev Tool" data structures and the main app features.
+
+## Current State
+Phase 1 (Foundations) is largely complete. The app has a robust system for creating and managing announcements and activities with proper role-based scoping and visibility.
+
+## Next Steps
+- **Phase 2: Core Attendance:** Start implementing the logic for marking participants present, generating temporary/draft attendance, and the approval workflow (Chapel -> Cluster -> Admin).
+- **Participant Management:** Refine the "Members" tab to allow easy selection/searching during attendance recording.
+- **Attendance Integrity:** Finalize the 3-layer database logic (Draft, Reviewed, Final).

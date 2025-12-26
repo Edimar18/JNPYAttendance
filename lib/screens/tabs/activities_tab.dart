@@ -34,13 +34,22 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
         if (userProfile == null) return const Scaffold(body: Center(child: Text("Profile not found")));
         userProfile['id'] = user!.uid;
 
+        String headType = userProfile['head'] ?? 'none';
+
         if (!_initialScopeSet) {
-          _selectedViewClusterId = userProfile['clusterId'];
-          _selectedViewChapelId = userProfile['chapelId'];
+          // Default filters based on role
+          if (headType == 'admin') {
+            _selectedViewClusterId = null;
+            _selectedViewChapelId = null;
+          } else if (headType == 'cluster') {
+            _selectedViewClusterId = userProfile['clusterId'];
+            _selectedViewChapelId = null; // Show all chapels in their cluster by default
+          } else {
+            _selectedViewClusterId = userProfile['clusterId'];
+            _selectedViewChapelId = userProfile['chapelId'];
+          }
           _initialScopeSet = true;
         }
-
-        String headType = userProfile['head'] ?? 'none';
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -110,13 +119,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
             subtitle: "Schedule a new event for your specific chapel.",
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(userProfile: profile, scope: 'chapel'))),
           ),
-          const SizedBox(height: 16),
-          _buildActionCard(
-            icon: Icons.groups,
-            title: "Join Cluster / Parish Activity",
-            subtitle: "Browse and register your chapel's participation in wider events.",
-            onTap: () {},
-          ),
+
         ],
       );
     } else if (headType == 'cluster') {
@@ -229,13 +232,25 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
   }
 
   Widget _buildActivitiesList(String headType, Map<String, dynamic> profile) {
+    String? chapelId;
+    String? clusterId;
+    bool all = false;
+
+    if (headType == 'admin') {
+      chapelId = _selectedViewChapelId;
+      clusterId = _selectedViewClusterId;
+      if (chapelId == null && clusterId == null) all = true;
+    } else if (headType == 'cluster') {
+      chapelId = _selectedViewChapelId;
+      clusterId = profile['clusterId'];
+    } else {
+      // Chapel heads or regular members
+      chapelId = headType == 'chapel' ? profile['chapelId'] : _selectedViewChapelId ?? profile['chapelId'];
+      clusterId = profile['clusterId'];
+    }
+
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _db.getActivities(
-        headType == 'chapel' ? profile['chapelId'] : _selectedViewChapelId,
-        (headType == 'cluster' && _selectedViewChapelId == null) 
-            ? profile['clusterId'] 
-            : (headType == 'admin' && _selectedViewChapelId == null) ? _selectedViewClusterId : null,
-      ),
+      stream: _db.getActivities(chapelId, clusterId, all: all),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -274,6 +289,8 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
 
   Widget _buildActivityBox(Map<String, dynamic> act, String label) {
     Color labelColor = label == 'TODAY' ? const Color(0xFF1E5631) : Colors.blueGrey;
+    String scope = act['scope'] ?? 'chapel';
+    Color scopeColor = scope == 'parish' ? Colors.green : (scope == 'cluster' ? Colors.orange : Colors.blue);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -297,7 +314,23 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(label, style: TextStyle(color: labelColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Text(label, style: TextStyle(color: labelColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: scopeColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            scope.toUpperCase(),
+                            style: TextStyle(color: scopeColor, fontSize: 8, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
                     Text(
                       DateFormat('MMM d').format((act['date'] as Timestamp).toDate()),
                       style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.bold),

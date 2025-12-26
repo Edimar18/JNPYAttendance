@@ -82,20 +82,7 @@ class _HomeTabState extends State<HomeTab> {
                       ),
                     ],
                   ),
-                  Stack(
-                    children: [
-                      const Icon(Icons.notifications_none, size: 28),
-                      Positioned(
-                        right: 4,
-                        top: 4,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        ),
-                      )
-                    ],
-                  )
+                  
                 ],
               ),
               const SizedBox(height: 24),
