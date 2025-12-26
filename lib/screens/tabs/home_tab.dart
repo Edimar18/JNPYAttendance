@@ -163,7 +163,7 @@ class _HomeTabState extends State<HomeTab> {
         return Column(
           children: [
             SizedBox(
-              height: 130,
+              height: 160,
               child: PageView.builder(
                 controller: _announcementController,
                 onPageChanged: (page) {
@@ -172,39 +172,90 @@ class _HomeTabState extends State<HomeTab> {
                 itemCount: anns.length,
                 itemBuilder: (context, index) {
                   final ann = anns[index];
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8, bottom: 10),
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          color: primaryColor,
-                        ),
-                        const SizedBox(width: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
-                          child: Icon(Icons.campaign, color: Colors.blue[400]),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(ann['title'] ?? 'Announcement', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              const SizedBox(height: 4),
-                              Text(ann['content'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                            ],
+                  return GestureDetector(
+                    onTap: () => _showAnnouncementDetail(ann),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8, bottom: 10),
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            color: primaryColor,
                           ),
-                        )
-                      ],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue[50],
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          ann['scope']?.toUpperCase() ?? 'GENERAL',
+                                          style: TextStyle(color: Colors.blue[700], fontSize: 10, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      Text(
+                                        ann['createdAt'] != null 
+                                          ? DateFormat('h:mm a').format((ann['createdAt'] as Timestamp).toDate())
+                                          : '',
+                                        style: TextStyle(color: Colors.grey[400], fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    ann['title'] ?? 'Announcement', 
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    ann['content'] ?? '', 
+                                    maxLines: 2, 
+                                    overflow: TextOverflow.ellipsis, 
+                                    style: const TextStyle(color: Colors.grey, fontSize: 13)
+                                  ),
+                                  const Spacer(),
+                                  FutureBuilder<Map<String, dynamic>?>(
+                                    future: _db.getUserProfile(ann['createdBy'] ?? ''),
+                                    builder: (context, userSnap) {
+                                      if (!userSnap.hasData) return const SizedBox();
+                                      final creator = userSnap.data!;
+                                      return Row(
+                                        children: [
+                                          Icon(Icons.person_pin, size: 14, color: primaryColor),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${creator['fullName']} • ${creator['head']?.toUpperCase() ?? 'MEMBER'}',
+                                            style: TextStyle(color: primaryColor.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -228,6 +279,97 @@ class _HomeTabState extends State<HomeTab> {
           ],
         );
       },
+    );
+  }
+
+  void _showAnnouncementDetail(Map<String, dynamic> ann) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: EdgeInsets.zero,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                    child: Text(
+                      ann['scope']?.toUpperCase() ?? 'PARISH',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    ann['title'] ?? 'Announcement',
+                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ann['content'] ?? '',
+                    style: TextStyle(color: Colors.grey[800], fontSize: 15, height: 1.6),
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  FutureBuilder<Map<String, dynamic>?>(
+                    future: _db.getUserProfile(ann['createdBy'] ?? ''),
+                    builder: (context, userSnap) {
+                      if (!userSnap.hasData) return const SizedBox();
+                      final creator = userSnap.data!;
+                      final date = ann['createdAt'] != null ? (ann['createdAt'] as Timestamp).toDate() : DateTime.now();
+                      return Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundImage: creator['profileImageUrl'] != null ? NetworkImage(creator['profileImageUrl']) : null,
+                            child: creator['profileImageUrl'] == null ? const Icon(Icons.person) : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(creator['fullName'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text(
+                                '${creator['head']?.toUpperCase() ?? 'MEMBER'} • ${DateFormat('MMM d, h:mm a').format(date)}',
+                                style: const TextStyle(color: Colors.grey, fontSize: 11),
+                              ),
+                            ],
+                          )
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('CLOSE', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
