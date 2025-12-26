@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 
 class AddParticipantScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
   String age = '';
   String contactNumber = '';
   String gender = 'Male';
+  DateTime? birthDate;
   String? selectedClusterId;
   String? selectedChapelId;
   List<String> selectedMinistries = [];
@@ -66,6 +68,34 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
       if (croppedFile != null) {
         setState(() => _imageFile = File(croppedFile.path));
       }
+    }
+  }
+
+  Future<void> _selectBirthDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: birthDate ?? DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != birthDate) {
+      setState(() {
+        birthDate = picked;
+        // Calculate age automatically
+        age = (DateTime.now().year - picked.year).toString();
+      });
     }
   }
 
@@ -125,14 +155,39 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Birth Date & Age
               Row(
                 children: [
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Birth Date'),
+                        GestureDetector(
+                          onTap: () => _selectBirthDate(context),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              decoration: _inputDecoration(
+                                birthDate == null ? 'Select Date' : DateFormat('MMM dd, yyyy').format(birthDate!),
+                                Icons.calendar_today,
+                              ),
+                              validator: (val) => birthDate == null ? 'Required' : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildLabel('Age'),
                         TextFormField(
+                          key: Key(age),
+                          initialValue: age,
                           keyboardType: TextInputType.number,
                           decoration: _inputDecoration('00', null),
                           onChanged: (val) => age = val,
@@ -141,23 +196,16 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('Contact Number'),
-                        TextFormField(
-                          keyboardType: TextInputType.phone,
-                          decoration: _inputDecoration('09123456789', Icons.phone),
-                          onChanged: (val) => contactNumber = val,
-                          validator: (val) => val!.isEmpty ? 'Required' : null,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 20),
+
+              _buildLabel('Contact Number'),
+              TextFormField(
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration('09123456789', Icons.phone),
+                onChanged: (val) => contactNumber = val,
+                validator: (val) => val!.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 24),
 
@@ -295,6 +343,7 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
         await _db.addParticipant({
           'fullName': fullName,
           'age': age,
+          'birthDate': birthDate != null ? Timestamp.fromDate(birthDate!) : null,
           'gender': gender,
           'contactNumber': contactNumber,
           'clusterId': selectedClusterId,
@@ -304,7 +353,7 @@ class _AddParticipantScreenState extends State<AddParticipantScreen> {
           'badges': [],
           'role': 'Member',
           'head': 'none',
-          'isVerified': false,
+          'isVerified': true,
           'isManual': true,
           'createdAt': FieldValue.serverTimestamp(),
           'addedBy': widget.currentUserProfile['fullName'],

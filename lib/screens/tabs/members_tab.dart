@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_service.dart';
 import '../add_participant_screen.dart';
 import '../member_detail_screen.dart';
@@ -14,7 +15,6 @@ class MembersTab extends StatefulWidget {
 class _MembersTabState extends State<MembersTab> {
   final DatabaseService _db = DatabaseService();
   final user = FirebaseAuth.instance.currentUser;
-  Map<String, dynamic>? userProfile;
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
@@ -24,28 +24,7 @@ class _MembersTabState extends State<MembersTab> {
   // For Admin/Cluster view switching
   String? _selectedViewClusterId;
   String? _selectedViewChapelId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    if (user != null) {
-      final profile = await _db.getUserProfile(user!.uid);
-      if (mounted) {
-        setState(() {
-          userProfile = profile;
-          if (profile != null) {
-            userProfile!['id'] = user!.uid; // Ensure ID is present
-            _selectedViewClusterId = profile['clusterId'];
-            _selectedViewChapelId = profile['chapelId'];
-          }
-        });
-      }
-    }
-  }
+  bool _initialScopeSet = false;
 
   List<Map<String, dynamic>> _filterAndSortMembers(List<Map<String, dynamic>> members) {
     List<Map<String, dynamic>> filtered = members.where((m) {
@@ -87,182 +66,198 @@ class _MembersTabState extends State<MembersTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (userProfile == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (user == null) return const Scaffold(body: Center(child: Text("Please login")));
 
-    String headType = userProfile!['head'] ?? 'none';
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').doc(user!.uid).snapshots(),
+      builder: (context, profileSnapshot) {
+        if (!profileSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        
+        final userProfile = profileSnapshot.data!.data() as Map<String, dynamic>?;
+        if (userProfile == null) return const Scaffold(body: Center(child: Text("Profile not found")));
+        userProfile['id'] = user!.uid;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Participants',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isAscending ? Icons.sort_by_alpha : Icons.sort_by_alpha_outlined,
-              color: Colors.black54,
+        // Set initial scope once when profile loads
+        if (!_initialScopeSet) {
+          _selectedViewClusterId = userProfile['clusterId'];
+          _selectedViewChapelId = userProfile['chapelId'];
+          _initialScopeSet = true;
+        }
+
+        String headType = userProfile['head'] ?? 'none';
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text(
+              'Participants',
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
             ),
-            onPressed: () => setState(() => _isAscending = !_isAscending),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _isAscending ? Icons.sort_by_alpha : Icons.sort_by_alpha_outlined,
+                  color: Colors.black54,
+                ),
+                onPressed: () => setState(() => _isAscending = !_isAscending),
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddParticipantScreen(currentUserProfile: userProfile!),
-            ),
-          );
-        },
-        backgroundColor: const Color(0xFF1E5631),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          // Scope Selectors for Admin/Cluster Head
-          if (headType == 'admin' || headType == 'cluster') _buildScopeSelector(headType),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddParticipantScreen(currentUserProfile: userProfile),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFF1E5631),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          body: Column(
+            children: [
+              // Scope Selectors for Admin/Cluster Head
+              if (headType == 'admin' || headType == 'cluster') _buildScopeSelector(headType),
 
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Search by name...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close, color: Colors.grey),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = "");
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                  decoration: InputDecoration(
+                    hintText: 'Search by name...',
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = "");
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // Ministry Filters
-          SizedBox(
-            height: 50,
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _db.getMinistries(),
-              builder: (context, snapshot) {
-                List<String> ministries = ["All Members"];
-                if (snapshot.hasData) {
-                  ministries.addAll(snapshot.data!.map((m) => m['name'] as String));
-                }
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: ministries.length,
-                  itemBuilder: (context, index) {
-                    final ministry = ministries[index];
-                    final isSelected = _selectedMinistry == ministry;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ChoiceChip(
-                        label: Text(ministry),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() => _selectedMinistry = ministry);
-                        },
-                        selectedColor: const Color(0xFFE2E8F0),
-                        backgroundColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.black87 : Colors.black54,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isSelected ? Colors.blue.withOpacity(0.3) : Colors.transparent,
+              // Ministry Filters
+              SizedBox(
+                height: 50,
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _db.getMinistries(),
+                  builder: (context, snapshot) {
+                    List<String> ministries = ["All Members"];
+                    if (snapshot.hasData) {
+                      ministries.addAll(snapshot.data!.map((m) => m['name'] as String));
+                    }
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: ministries.length,
+                      itemBuilder: (context, index) {
+                        final ministry = ministries[index];
+                        final isSelected = _selectedMinistry == ministry;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ChoiceChip(
+                            label: Text(ministry),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() => _selectedMinistry = ministry);
+                            },
+                            selectedColor: const Color(0xFFE2E8F0),
+                            backgroundColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.black87 : Colors.black54,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: isSelected ? Colors.blue.withOpacity(0.3) : Colors.transparent,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
-          ),
-
-          // Members List
-          Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _db.getParticipants(
-                chapelId: headType == 'chapel' ? userProfile!['chapelId'] : _selectedViewChapelId,
-                clusterId: (headType == 'cluster' && _selectedViewChapelId == null) 
-                    ? userProfile!['clusterId'] 
-                    : (headType == 'admin' && _selectedViewChapelId == null) ? _selectedViewClusterId : null,
+                ),
               ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No added members yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                        Text('Please add your first members.', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                      ],
-                    ),
-                  );
-                }
 
-                final filteredMembers = _filterAndSortMembers(snapshot.data!);
-                if (filteredMembers.isEmpty) {
-                  return const Center(child: Text('No members match your search.'));
-                }
-
-                final grouped = _groupMembers(filteredMembers);
-                final sortedKeys = grouped.keys.toList()..sort();
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  itemCount: sortedKeys.length,
-                  itemBuilder: (context, index) {
-                    final char = sortedKeys[index];
-                    final members = grouped[char]!;
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8, top: 16, bottom: 8),
-                          child: Text(char, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              // Members List
+              Expanded(
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _db.getParticipants(
+                    chapelId: headType == 'chapel' ? userProfile['chapelId'] : _selectedViewChapelId,
+                    clusterId: (headType == 'cluster' && _selectedViewChapelId == null) 
+                        ? userProfile['clusterId'] 
+                        : (headType == 'admin' && _selectedViewChapelId == null) ? _selectedViewClusterId : null,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('No added members yet.', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                            Text('Please add your first members.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                          ],
                         ),
-                        ...members.map((m) => _buildMemberCard(m)).toList(),
-                      ],
+                      );
+                    }
+
+                    final filteredMembers = _filterAndSortMembers(snapshot.data!);
+                    if (filteredMembers.isEmpty) {
+                      return const Center(child: Text('No members match your search.'));
+                    }
+
+                    final grouped = _groupMembers(filteredMembers);
+                    final sortedKeys = grouped.keys.toList()..sort();
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      itemCount: sortedKeys.length,
+                      itemBuilder: (context, index) {
+                        final char = sortedKeys[index];
+                        final members = grouped[char]!;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8, top: 16, bottom: 8),
+                              child: Text(char, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                            ),
+                            ...members.map((m) => _buildMemberCard(m)).toList(),
+                          ],
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

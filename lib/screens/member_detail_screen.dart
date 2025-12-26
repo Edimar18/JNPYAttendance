@@ -97,6 +97,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
     final bool isVerified = memberData['isVerified'] ?? false;
     final String gender = memberData['gender'] ?? 'N/A';
     final String age = memberData['age'] ?? 'N/A';
+    final String birthdate = memberData['birthdate'] ?? 'N/A';
     final List ministries = memberData['ministries'] as List? ?? [];
     final DateTime? createdAt = memberData['createdAt'] is Timestamp 
         ? (memberData['createdAt'] as Timestamp).toDate() 
@@ -205,7 +206,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                   Row(
                     children: [
                       _buildInfoGridItem('AGE', age),
-                      _buildInfoGridItem('BIRTHDAY', 'Oct 12'), // Placeholder as in image
+                      _buildInfoGridItem('BIRTHDAY', birthdate),
                     ],
                   ),
                   const Divider(height: 1),

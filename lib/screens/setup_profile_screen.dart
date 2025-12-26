@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 
 class SetupProfileScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
   String age = '';
   String contactNumber = '';
   String gender = 'Male';
+  DateTime? birthDate;
   String? selectedClusterId;
   String? selectedChapelId;
   List<String> selectedMinistries = [];
@@ -50,6 +52,34 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
       if (croppedFile != null) {
         setState(() => _imageFile = File(croppedFile.path));
       }
+    }
+  }
+
+  Future<void> _selectBirthDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: birthDate ?? DateTime(2000),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != birthDate) {
+      setState(() {
+        birthDate = picked;
+        // Calculate age automatically
+        age = (DateTime.now().year - picked.year).toString();
+      });
     }
   }
 
@@ -108,15 +138,39 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 3. Age & Contact
+              // 3. Birth Date & Age
               Row(
                 children: [
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Birth Date'),
+                        GestureDetector(
+                          onTap: () => _selectBirthDate(context),
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              decoration: _inputDecoration(
+                                birthDate == null ? 'Select Date' : DateFormat('MMM dd, yyyy').format(birthDate!),
+                                Icons.calendar_today,
+                              ),
+                              validator: (val) => birthDate == null ? 'Required' : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildLabel('Age'),
                         TextFormField(
+                          key: Key(age), // To force UI update when age changes via date picker
+                          initialValue: age,
                           keyboardType: TextInputType.number,
                           decoration: _inputDecoration('00', null),
                           onChanged: (val) => age = val,
@@ -125,27 +179,21 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('Contact Number'),
-                        TextFormField(
-                          keyboardType: TextInputType.phone,
-                          decoration: _inputDecoration('09123456789', Icons.phone),
-                          onChanged: (val) => contactNumber = val,
-                          validator: (val) => val!.isEmpty ? 'Required' : null,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 20),
+
+              // 4. Contact Number
+              _buildLabel('Contact Number'),
+              TextFormField(
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration('09123456789', Icons.phone),
+                onChanged: (val) => contactNumber = val,
+                validator: (val) => val!.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 24),
 
-              // 4. Gender (Move above Cluster)
+              // 5. Gender
               _buildLabel('Gender'),
               Row(
                 children: [
@@ -156,7 +204,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 5. Cluster Selection
+              // 6. Cluster Selection
               _buildLabel('Cluster Group'),
               StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _db.getClusters(),
@@ -179,7 +227,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 6. Chapel Selection
+              // 7. Chapel Selection
               _buildLabel('Chapel Assignment'),
               StreamBuilder<List<Map<String, dynamic>>>(
                 stream: selectedClusterId == null 
@@ -204,7 +252,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 7. Ministries
+              // 8. Ministries
               _buildLabel('Ministries'),
               StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _db.getMinistries(),
@@ -289,6 +337,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
           await _db.saveUserProfile(user.uid, {
             'fullName': fullName,
             'age': age,
+            'birthDate': birthDate != null ? Timestamp.fromDate(birthDate!) : null,
             'gender': gender,
             'contactNumber': contactNumber,
             'clusterId': selectedClusterId,
@@ -298,7 +347,7 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
             'badges': [],
             'role': 'Member',
             'isVerified': false,// Force false by default
-            'head': 'chapel',
+            'head': 'none',
             'createdAt': FieldValue.serverTimestamp(),
           });
         }
