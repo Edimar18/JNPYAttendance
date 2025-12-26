@@ -297,7 +297,8 @@ class _SetupProfileScreenState extends State<SetupProfileScreen> {
             'profileImageUrl': imageUrl,
             'badges': [],
             'role': 'Member',
-            'isVerified': false, // Force false by default
+            'isVerified': false,// Force false by default
+            'head': 'chapel',
             'createdAt': FieldValue.serverTimestamp(),
           });
         }

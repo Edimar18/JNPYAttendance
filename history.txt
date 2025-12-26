@@ -1,0 +1,38 @@
+can you wrap up all our convo startong from the very start upto now and save it to history.txt so that ypu
+will have an idea on what we did before, make it history.txt not so big in size but will still retain all the
+information you need to recall on what we did from the very start.
+
+PARISH ATTENDANCE MONITORING SYSTEM - PROJECT HISTORY
+
+1. THEME & BRANDING
+- Primary Color: #7A0000 (Maroon).
+- Logo: Circular Image.asset from assets/images/logo.png.
+- UI Style: Modern cards with left-side color accents (#7A0000 for announcements, varied for rankings).
+
+2. AUTHENTICATION & INITIAL SETUP
+- Firebase Auth: Login and Signup with improved error dialogs.
+- Redirect Logic: New users without a Firestore profile are forced to SetupProfileScreen.
+- Profile Fields: Full Name, Age, Gender (Toggle), Contact, Cluster, Chapel, Ministries, Profile Image URL, isVerified (default false), head role (default none).
+
+3. DATABASE & STORAGE (Firestore & Cloudinary)
+- Users: UID-based docs with role and verification status.
+- Structure: Parish -> Cluster -> Chapel.
+- Storage: Cloudinary for profile photos (Cloud: dubuem6e9, Preset: PYCCAttendance).
+- Logic: Chapels are fetched based on ClusterId and sorted in-memory (to avoid index requirements).
+
+4. HOME SCREEN (DYNAMIC DASHBOARD)
+- Greeting: Dynamic "Good Morning/Afternoon/Evening" + User Name + Current Date.
+- Announcements: Swipable PageView with pagination dots. Filtered by Scope (Parish, User's Cluster, or User's Chapel).
+- Top Clusters: Hardcoded ranking UI with consistency percentages and growth indicators.
+- Attendance Graph: LineChart (fl_chart) showing average consistency, dated bottom axis, and monthly comparison.
+- Activities: Today/Future events only. Sorted by time. Dynamic labels: "UPCOMING" (first) and "LATER". Filtered by User Scope.
+
+5. ADMIN / DEVELOPER TOOLS
+- Accessed via Profile Tab.
+- Tab 1 (Clusters & Chapels): Manual CRUD for organizational hierarchy.
+- Tab 2 (Ministries): Global list management.
+- Tab 3 (Announcements & Activities): Master view/edit for all content across all scopes. Includes Location, Time, and Date pickers.
+
+6. TECHNICAL CONFIGURATIONS
+- Android: Manifest updated with Internet/Storage permissions and UCropActivity for image cropping.
+- Dependencies: firebase_core, firebase_auth, cloud_firestore, image_picker, image_cropper, http, intl, fl_chart.
