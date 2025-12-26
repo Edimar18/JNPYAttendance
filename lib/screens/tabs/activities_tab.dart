@@ -531,7 +531,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (!isOpen)
+                  if (!isOpen && scope != 'chapel')
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
                       child: Text(
@@ -540,7 +540,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                       ),
                     ),
                   ElevatedButton(
-                    onPressed: isOpen ? () {
+                    onPressed: (isOpen || scope == 'chapel') ? () {
                       // TODO: Navigate to Attendance Recording
                     } : null,
                     style: ElevatedButton.styleFrom(

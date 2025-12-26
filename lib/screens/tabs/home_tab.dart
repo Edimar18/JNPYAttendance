@@ -46,6 +46,26 @@ class _HomeTabState extends State<HomeTab> {
     return 'Good Evening';
   }
 
+  DateTime _getEventDateTime(Timestamp date, String timeStr) {
+    DateTime d = date.toDate();
+    try {
+      DateTime t = DateFormat.jm().parse(timeStr);
+      return DateTime(d.year, d.month, d.day, t.hour, t.minute);
+    } catch (e) {
+      return d;
+    }
+  }
+
+  String _getTimeLeft(DateTime eventTime) {
+    final now = DateTime.now();
+    final diff = eventTime.difference(now);
+    if (diff.isNegative) return "Event time has reached";
+    if (diff.inDays > 0) return "${diff.inDays} day${diff.inDays > 1 ? 's' : ''} left";
+    if (diff.inHours > 0) return "${diff.inHours} hr${diff.inHours > 1 ? 's' : ''} left";
+    if (diff.inMinutes > 0) return "${diff.inMinutes} min${diff.inMinutes > 1 ? 's' : ''} left";
+    return "Starting soon";
+  }
+
   @override
   Widget build(BuildContext context) {
     if (userProfile == null) {
@@ -82,7 +102,6 @@ class _HomeTabState extends State<HomeTab> {
                       ),
                     ],
                   ),
-                  
                 ],
               ),
               const SizedBox(height: 24),
@@ -360,6 +379,192 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
+  void _showActivityDetail(Map<String, dynamic> act, Map<String, dynamic> profile) {
+    String scope = act['scope'] ?? 'parish';
+    Color scopeColor = scope == 'parish' ? Colors.green : (scope == 'cluster' ? Colors.orange : Colors.blue);
+    bool isChapelHead = profile['head'] == 'chapel';
+    List registeredChapels = act['registeredChapels'] ?? [];
+    bool isRegistered = registeredChapels.contains(profile['chapelId']);
+    bool isOpen = act['isOpen'] ?? false;
+    DateTime eventDateTime = _getEventDateTime(act['date'], act['time'] ?? '12:00 AM');
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: EdgeInsets.zero,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: scopeColor,
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                        child: Text(
+                          scope.toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        act['name'] ?? 'Activity',
+                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _buildDetailIcon(Icons.calendar_today, scopeColor),
+                          const SizedBox(width: 12),
+                          Text(DateFormat('EEEE, MMMM d, yyyy').format((act['date'] as Timestamp).toDate()), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _buildDetailIcon(Icons.access_time, scopeColor),
+                          const SizedBox(width: 12),
+                          Text(act['time'] ?? 'TBA', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _buildDetailIcon(Icons.location_on, scopeColor),
+                          const SizedBox(width: 12),
+                          Text(act['location'] ?? 'TBA', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('INFORMATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      Text(act['information'] ?? 'No description provided.', style: TextStyle(color: Colors.grey[800], height: 1.5)),
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      FutureBuilder<Map<String, dynamic>?>(
+                        future: _db.getUserProfile(act['createdBy'] ?? ''),
+                        builder: (context, userSnap) {
+                          if (!userSnap.hasData) return const SizedBox();
+                          final creator = userSnap.data!;
+                          return Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundImage: creator['profileImageUrl'] != null ? NetworkImage(creator['profileImageUrl']) : null,
+                                child: creator['profileImageUrl'] == null ? const Icon(Icons.person) : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(creator['fullName'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text(
+                                    'EVENT CREATOR • ${creator['head']?.toUpperCase() ?? 'ADMIN'}',
+                                    style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              )
+                            ],
+                          );
+                        },
+                      ),
+                      if (scope != 'chapel') ...[
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.church, size: 18, color: Colors.grey),
+                              const SizedBox(width: 8),
+                              Text('${registeredChapels.length} Chapels Registered', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (isChapelHead && scope != 'chapel')
+              TextButton.icon(
+                onPressed: isRegistered ? null : () async {
+                  await _db.registerChapel(act['id'], profile['chapelId']);
+                  setDialogState(() {
+                    isRegistered = true;
+                    registeredChapels.add(profile['chapelId']);
+                  });
+                },
+                icon: Icon(isRegistered ? Icons.check_circle : Icons.app_registration),
+                label: Text(isRegistered ? 'REGISTERED' : 'REGISTER MY CHAPEL'),
+                style: TextButton.styleFrom(foregroundColor: isRegistered ? Colors.green : scopeColor),
+              ),
+            if (isChapelHead)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (!isOpen && scope != 'chapel')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0, right: 8.0),
+                      child: Text(
+                        "Attendance opens at set time: ${_getTimeLeft(eventDateTime)}",
+                        style: TextStyle(fontSize: 10, color: scopeColor, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ElevatedButton(
+                    onPressed: (isOpen || scope == 'chapel') ? () {
+                      // TODO: Navigate to Attendance Recording
+                    } : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: scopeColor,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey[300],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                    ),
+                    child: const Text('ADD ATTENDANCE'),
+                  ),
+                ],
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CLOSE', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailIcon(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      child: Icon(icon, color: color, size: 16),
+    );
+  }
+
   Widget _buildRankingCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -548,13 +753,19 @@ class _HomeTabState extends State<HomeTab> {
         }
 
         return Column(
-          children: filteredActivities.map((act) => _activityCard(act, 'TODAY')).toList(),
+          children: filteredActivities.map((act) => GestureDetector(
+            onTap: () => _showActivityDetail(act, userProfile!),
+            child: _activityCard(act, 'TODAY')
+          )).toList(),
         );
       },
     );
   }
 
   Widget _activityCard(Map<String, dynamic> act, String status) {
+    String scope = act['scope'] ?? 'chapel';
+    Color scopeColor = scope == 'parish' ? Colors.green : (scope == 'cluster' ? Colors.orange : Colors.blue);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -579,13 +790,29 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  status, 
-                  style: const TextStyle(
-                    color: Color(0xFF1E5631), 
-                    fontSize: 10, 
-                    fontWeight: FontWeight.bold
-                  )
+                Row(
+                  children: [
+                    Text(
+                      status, 
+                      style: const TextStyle(
+                        color: Color(0xFF1E5631), 
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold
+                      )
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: scopeColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        scope.toUpperCase(),
+                        style: TextStyle(color: scopeColor, fontSize: 8, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
                   act['name'] ?? 'Activity', 
