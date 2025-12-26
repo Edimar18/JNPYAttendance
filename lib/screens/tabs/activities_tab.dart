@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../services/database_service.dart';
 import '../manage_announcements_screen.dart';
+import '../add_activity_screen.dart';
 
 class ActivitiesTab extends StatefulWidget {
   const ActivitiesTab({super.key});
@@ -31,7 +32,8 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
         
         final userProfile = profileSnapshot.data!.data() as Map<String, dynamic>?;
         if (userProfile == null) return const Scaffold(body: Center(child: Text("Profile not found")));
-        
+        userProfile['id'] = user!.uid;
+
         if (!_initialScopeSet) {
           _selectedViewClusterId = userProfile['clusterId'];
           _selectedViewChapelId = userProfile['chapelId'];
@@ -60,7 +62,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Upcoming Activities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('Activities List', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     if (headType == 'admin' || headType == 'cluster')
                       IconButton(
                         icon: const Icon(Icons.filter_list),
@@ -79,21 +81,19 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
   }
 
   Widget _buildHeader(String headType) {
-    String title = "Manage Events";
     String description = "";
-    
     if (headType == 'chapel') {
-      description = "As a Chapel Head, you can organize local gatherings or connect your members with the wider parish community.";
+      description = "As a Chapel Head, organize local gatherings or connect your members with the wider parish.";
     } else if (headType == 'cluster') {
-      description = "As a Cluster Head, you manage cluster-wide activities and oversee chapel events within your jurisdiction.";
+      description = "As a Cluster Head, manage cluster-wide activities and oversee chapel events within your cluster.";
     } else if (headType == 'admin') {
-      description = "As a Parish Admin, you coordinate all activities across all clusters and chapels.";
+      description = "As a Parish Admin, coordinate activities across all clusters and chapels.";
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E5631))),
+        const Text("Manage Events", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E5631))),
         const SizedBox(height: 8),
         Text(description, style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
       ],
@@ -107,17 +107,15 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
           _buildActionCard(
             icon: Icons.edit_calendar_sharp,
             title: "Create Chapel Activity",
-            subtitle: "Schedule a new mass, prayer meeting, or community service event for your specific chapel.",
-            onTap: () => _showCreateActivityDialog(context, 'chapel', profile),
+            subtitle: "Schedule a new event for your specific chapel.",
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(userProfile: profile, scope: 'chapel'))),
           ),
           const SizedBox(height: 16),
           _buildActionCard(
             icon: Icons.groups,
             title: "Join Cluster / Parish Activity",
-            subtitle: "Browse upcoming events from the larger cluster or parish and register your chapel's participation.",
-            onTap: () {
-              // Navigation or action for joining
-            },
+            subtitle: "Browse and register your chapel's participation in wider events.",
+            onTap: () {},
           ),
         ],
       );
@@ -128,19 +126,14 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
             icon: Icons.edit_calendar_sharp,
             title: "Create Cluster Activity",
             subtitle: "Organize events that involve all chapels within your cluster.",
-            onTap: () => _showCreateActivityDialog(context, 'cluster', profile),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(userProfile: profile, scope: 'cluster'))),
           ),
           const SizedBox(height: 16),
           _buildActionCard(
             icon: Icons.campaign,
             title: "Manage Announcements",
-            subtitle: "Broadcast news or updates to your entire cluster or specific chapels.",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile)),
-              );
-            },
+            subtitle: "Broadcast news or updates to your cluster or specific chapels.",
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile))),
           ),
         ],
       );
@@ -151,24 +144,53 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
             icon: Icons.church,
             title: "Create Parish / Cluster Activity",
             subtitle: "Plan events for the entire parish community or specific clusters.",
-            onTap: () => _showCreateActivityDialog(context, 'parish', profile),
+            onTap: () => _showAdminActivityScopeDialog(context, profile),
           ),
           const SizedBox(height: 16),
           _buildActionCard(
             icon: Icons.campaign,
             title: "Manage Announcements",
             subtitle: "Create and manage parish, cluster, or chapel announcements.",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile)),
-              );
-            },
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ManageAnnouncementsScreen(userProfile: profile))),
           ),
         ],
       );
     }
     return const SizedBox();
+  }
+
+  void _showAdminActivityScopeDialog(BuildContext context, Map<String, dynamic> profile) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Choose Activity Scope', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: const Icon(Icons.public, color: Color(0xFF1E5631)),
+              title: const Text('Parish Wide Activity'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(userProfile: profile, scope: 'parish')));
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.groups, color: Color(0xFF1E5631)),
+              title: const Text('Cluster Specific Activity'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => AddActivityScreen(userProfile: profile, scope: 'cluster')));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildActionCard({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
@@ -224,7 +246,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                 children: [
                   Icon(Icons.event_busy, size: 48, color: Colors.grey[300]),
                   const SizedBox(height: 16),
-                  Text('No upcoming activities found.', style: TextStyle(color: Colors.grey[600])),
+                  Text('No activities found.', style: TextStyle(color: Colors.grey[600])),
                 ],
               ),
             ),
@@ -239,77 +261,68 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final act = activities[index];
-            return _buildActivityBox(act);
+            final actDate = (act['date'] as Timestamp).toDate();
+            final today = DateTime.now();
+            final isToday = actDate.year == today.year && actDate.month == today.month && actDate.day == today.day;
+            
+            return _buildActivityBox(act, isToday ? 'TODAY' : 'UPCOMING');
           },
         );
       },
     );
   }
 
-  Widget _buildActivityBox(Map<String, dynamic> act) {
-    final DateTime date = (act['date'] as Timestamp).toDate();
-    final String formattedDate = DateFormat('EEE, MMM d').format(date);
-    final String status = act['status'] ?? 'upcoming';
-    
-    Color statusColor;
-    switch (status) {
-      case 'ongoing': statusColor = Colors.green; break;
-      case 'attendance review': statusColor = Colors.orange; break;
-      case 'open': statusColor = Colors.blue; break;
-      default: statusColor = Colors.grey;
-    }
+  Widget _buildActivityBox(Map<String, dynamic> act, String label) {
+    Color labelColor = label == 'TODAY' ? const Color(0xFF1E5631) : Colors.blueGrey;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-              Text(formattedDate, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E5631))),
-            ],
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.event_available, color: labelColor, size: 24),
           ),
-          const SizedBox(height: 12),
-          Text(act['name'] ?? 'Untitled Activity', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(Icons.location_on_outlined, size: 14, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(act['location'] ?? 'No Location', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-              const SizedBox(width: 16),
-              Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(act['time'] ?? 'No Time', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            ],
-          ),
-          if (act['information'] != null && act['information'].toString().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              act['information'],
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(label, style: TextStyle(color: labelColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text(
+                      DateFormat('MMM d').format((act['date'] as Timestamp).toDate()),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Text(act['name'] ?? 'Untitled Activity', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 12, color: Colors.grey[500]),
+                    const SizedBox(width: 4),
+                    Text(act['time'] ?? 'No Time', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    const SizedBox(width: 12),
+                    Icon(Icons.location_on_outlined, size: 12, color: Colors.grey[500]),
+                    const SizedBox(width: 4),
+                    Text(act['location'] ?? 'No Location', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
-  }
-
-  void _showCreateActivityDialog(BuildContext context, String scope, Map<String, dynamic> profile) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Opening Create $scope Activity Screen...")));
   }
 
   void _showFilterDialog(BuildContext context, String headType, Map<String, dynamic> profile) {
@@ -344,7 +357,9 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                 ),
               const SizedBox(height: 16),
               StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _selectedViewClusterId != null ? _db.getChapels(_selectedViewClusterId!) : const Stream.empty(),
+                stream: (headType == 'admin') 
+                  ? (_selectedViewClusterId != null ? _db.getChapels(_selectedViewClusterId!) : const Stream.empty())
+                  : _db.getChapels(profile['clusterId']),
                 builder: (context, snapshot) {
                   return DropdownButtonFormField<String>(
                     value: _selectedViewChapelId,
@@ -354,7 +369,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
                       if (snapshot.hasData)
                         ...snapshot.data!.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name']))),
                     ],
-                    onChanged: (val) => setDialogState(() => _selectedViewChapelId = val),
+                    onChanged: (headType == 'admin' && _selectedViewClusterId == null) ? null : (val) => setDialogState(() => _selectedViewChapelId = val),
                   );
                 },
               ),

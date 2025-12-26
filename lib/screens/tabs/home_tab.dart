@@ -544,14 +544,13 @@ class _HomeTabState extends State<HomeTab> {
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
         
-        // Filter: Show only today and future activities
+        // Filter: Strictly TODAY only
         final filteredActivities = snapshot.data!.where((act) {
           final actDate = (act['date'] as Timestamp).toDate();
           final actDay = DateTime(actDate.year, actDate.month, actDate.day);
-          return actDay.isAtSameMomentAs(today) || actDay.isAfter(today);
+          return actDay.isAtSameMomentAs(today);
         }).toList();
 
-        // Sort: By date and then by time (assuming time is a string like "10:00 AM")
         filteredActivities.sort((a, b) => (a['date'] as Timestamp).compareTo(b['date'] as Timestamp));
 
         if (filteredActivities.isEmpty) {
@@ -562,13 +561,7 @@ class _HomeTabState extends State<HomeTab> {
         }
 
         return Column(
-          children: filteredActivities.asMap().entries.map((entry) {
-            int idx = entry.key;
-            var act = entry.value;
-            // First item of the sorted list is "UPCOMING", others are "LATER" (if same day)
-            String status = idx == 0 ? 'UPCOMING' : 'LATER';
-            return _activityCard(act, status);
-          }).toList(),
+          children: filteredActivities.map((act) => _activityCard(act, 'TODAY')).toList(),
         );
       },
     );
@@ -586,16 +579,13 @@ class _HomeTabState extends State<HomeTab> {
       child: Row(
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: const Color(0xFFE6F4EA),
               borderRadius: BorderRadius.circular(12),
-              image: const DecorationImage(
-                image: NetworkImage('https://via.placeholder.com/80'), 
-                fit: BoxFit.cover
-              ),
             ),
+            child: const Icon(Icons.event_available, color: Color(0xFF1E5631), size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -604,8 +594,8 @@ class _HomeTabState extends State<HomeTab> {
               children: [
                 Text(
                   status, 
-                  style: TextStyle(
-                    color: status == 'UPCOMING' ? Colors.green : Colors.blueGrey, 
+                  style: const TextStyle(
+                    color: Color(0xFF1E5631), 
                     fontSize: 10, 
                     fontWeight: FontWeight.bold
                   )
@@ -632,7 +622,7 @@ class _HomeTabState extends State<HomeTab> {
               ],
             ),
           ),
-          const Icon(Icons.more_horiz, color: Colors.grey)
+          const Icon(Icons.chevron_right, color: Colors.grey)
         ],
       ),
     );

@@ -89,16 +89,23 @@ class DatabaseService {
 
   // Activities
   Stream<List<Map<String, dynamic>>> getActivities(String? chapelId, String? clusterId, {bool all = false}) {
-    // We order by date ascending for the home screen (upcoming first)
     return _db.collection('activities').orderBy('date', descending: false).snapshots().map((snapshot) {
       var list = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
       if (all) return list;
       return list.where((act) {
         String scope = act['scope'] ?? 'parish';
         String? scopeId = act['scopeId'];
+        String? actClusterId = act['clusterId'];
+
         if (scope == 'parish') return true;
-        if (scope == 'cluster' && scopeId == clusterId) return true;
-        if (scope == 'chapel' && scopeId == chapelId) return true;
+        
+        if (chapelId != null) {
+          if (scope == 'chapel' && scopeId == chapelId) return true;
+          if (scope == 'cluster' && actClusterId == clusterId) return true;
+        } else if (clusterId != null) {
+          if (actClusterId == clusterId) return true;
+        }
+        
         return false;
       }).toList();
     });
@@ -176,23 +183,19 @@ class DatabaseService {
     await _db.collection('ministries').doc(id).delete();
   }
 
-  // Participants (Fetched from 'users' collection as per user feedback)
+  // Participants
   Stream<List<Map<String, dynamic>>> getParticipants({String? chapelId, String? clusterId}) {
     Query query = _db.collection('users');
-    
     if (chapelId != null) {
       query = query.where('chapelId', isEqualTo: chapelId);
     } else if (clusterId != null) {
       query = query.where('clusterId', isEqualTo: clusterId);
     }
-
     return query.snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => {'id': doc.id, ...doc.data() as Map<String, dynamic>}).toList());
   }
 
   Future<void> addParticipant(Map<String, dynamic> data) async {
-    // Note: If adding people without accounts, this might still go to a 'participants' collection
-    // or we can flag them in the 'users' collection as 'unregistered'.
     await _db.collection('users').add(data);
   }
 
