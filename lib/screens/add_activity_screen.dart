@@ -87,6 +87,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           'time': formattedTime,
           'scope': widget.scope,
           'status': 'upcoming',
+          'isOpen': false,
+          'registeredChapels': [],
           'createdBy': widget.userProfile['id'],
           'timeCreated': FieldValue.serverTimestamp(),
         };

@@ -123,6 +123,12 @@ class DatabaseService {
     await _db.collection('activities').doc(id).delete();
   }
 
+  Future<void> registerChapel(String activityId, String chapelId) async {
+    await _db.collection('activities').doc(activityId).update({
+      'registeredChapels': FieldValue.arrayUnion([chapelId])
+    });
+  }
+
   // Clusters & Chapels
   Stream<List<Map<String, dynamic>>> getClusters() {
     return _db.collection('clusters').orderBy('name').snapshots().map((snapshot) =>
